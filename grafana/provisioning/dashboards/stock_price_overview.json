@@ -1,0 +1,67 @@
+{
+    "uid": "stock-price-overview",
+    "title": "Stock Price System Overview",
+    "schemaVersion": 36,
+    "version": 1,
+    "panels": [
+      {
+        "type": "timeseries",
+        "title": "Latest OHLCV (per ticker)",
+        "gridPos": { "x": 0, "y": 0, "w": 12, "h": 8 },
+        "targets": [
+          {
+            "refId": "A",
+            "datasource": null,
+            "expr": "placeholder_for_ohlcv_timeseries" 
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short"
+          }
+        }
+      },
+      {
+        "type": "stat",
+        "title": "Portfolio Total Value",
+        "gridPos": { "x": 12, "y": 0, "w": 6, "h": 4 },
+        "targets": [
+          {
+            "refId": "B",
+            "datasource": null,
+            "expr": "placeholder_for_portfolio_value"
+          }
+        ],
+        "options": {
+          "reduceOptions": {
+            "values": true
+          }
+        }
+      },
+      {
+        "type": "table",
+        "title": "Stock-detail Latest Prices",
+        "gridPos": { "x": 12, "y": 4, "w": 6, "h": 8 },
+        "targets": [
+          {
+            "refId": "C",
+            "datasource": null,
+            "expr": "placeholder_for_stock_detail_table"
+          }
+        ]
+      },
+      {
+        "type": "graph",
+        "title": "Ticks Ingested per Second",
+        "gridPos": { "x": 0, "y": 8, "w": 12, "h": 6 },
+        "targets": [
+          {
+            "refId": "D",
+            "datasource": null,
+            "expr": "rate(ticks_ingested_total[1m])"
+          }
+        ]
+      }
+    ],
+    "refresh": "10s"
+  }

@@ -1,0 +1,53 @@
+{
+    "id": null,
+    "uid": "price-system",
+    "title": "Price System Overview",
+    "panels": [
+      {
+        "type": "graph",
+        "title": "Websocket Tick Rate",
+        "targets": [
+          {
+            "expr": "sum(rate(process_cpu_seconds_total[1m])) by (instance)",
+            "refId": "A"
+          }
+        ],
+        "gridPos": { "x": 0, "y": 0, "w": 12, "h": 8 }
+      },
+      {
+        "type": "table",
+        "title": "Stock-detail Last Price Updates",
+        "targets": [
+          {
+            "expr": "rate(go_memstats_heap_alloc_bytes[1m])",
+            "refId": "B"
+          }
+        ],
+        "gridPos": { "x": 12, "y": 0, "w": 12, "h": 8 }
+      },
+      {
+        "type": "graph",
+        "title": "Kafka Publish Errors",
+        "targets": [
+          {
+            "expr": "increase(process_start_time_seconds[5m])",
+            "refId": "C"
+          }
+        ],
+        "gridPos": { "x": 0, "y": 8, "w": 12, "h": 8 }
+      },
+      {
+        "type": "graph",
+        "title": "Portfolio Total Value (mocked)",
+        "targets": [
+          {
+            "expr": "sum(rate(process_cpu_seconds_total[5m]))",
+            "refId": "D"
+          }
+        ],
+        "gridPos": { "x": 12, "y": 8, "w": 12, "h": 8 }
+      }
+    ],
+    "schemaVersion": 36,
+    "version": 1
+  }
