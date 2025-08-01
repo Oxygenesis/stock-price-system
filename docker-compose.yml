@@ -1,0 +1,161 @@
+version: "3.9"
+
+services:
+  redpanda:
+    image: redpandadata/redpanda:latest
+    command:
+      - redpanda
+      - start
+      - --overprovisioned
+      - --smp
+      - "1"
+      - --memory
+      - 1G
+      - --reserve-memory
+      - 0M
+      - --node-id
+      - "0"
+      - --check=false
+      - --kafka-addr
+      - PLAINTEXT://0.0.0.0:9092
+      - --advertise-kafka-addr
+      - PLAINTEXT://redpanda:9092
+    ports:
+      - "9092:9092"
+    healthcheck:
+      test: ["CMD", "rpk", "cluster", "info"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  redpanda-console:
+    image: redpandadata/console:latest
+    ports:
+      - "8085:8085"
+    environment:
+      - REDPANDA_BROKERS=redpanda:9092
+    depends_on:
+      - redpanda
+
+  redis:
+    image: redis:8
+    ports:
+      - "6379:6379"
+
+  timescaledb:
+    image: timescale/timescaledb:latest-pg15
+    environment:
+      POSTGRES_PASSWORD: example
+      POSTGRES_USER: user
+      POSTGRES_DB: prices
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./db-init:/docker-entrypoint-initdb.d:ro
+      - timescale-data:/var/lib/postgresql/data
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:latest
+    command: ["--config=/etc/otel-collector-config.yaml"]
+    volumes:
+      - ./otel-collector-config.yaml:/etc/otel-collector-config.yaml:ro
+    ports:
+      - "4317:4317"   # OTLP gRPC
+      - "4318:4318"   # OTLP HTTP
+      - "8889:8889"   # Prometheus scrape
+
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    ports:
+      - "16686:16686"
+
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_AUTH_ANONYMOUS_ENABLED=true
+    depends_on:
+      - otel-collector
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning
+
+  generator:
+    build:
+      context: .
+      dockerfile: deployments/generator/Dockerfile
+    ports:
+      - "8000:8000"
+    depends_on:
+      - redpanda
+      - otel-collector
+    environment:
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
+      - OTEL_SERVICE_NAME=generator
+
+  aggregator:
+    build:
+      context: .
+      dockerfile: deployments/aggregator/Dockerfile
+    environment:
+      - FEED_URL=ws://generator:8000/feed
+      - KAFKA_BROKERS=redpanda:9092
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
+      - OTEL_SERVICE_NAME=aggregator
+    depends_on:
+      - generator
+      - redpanda
+      - otel-collector
+
+  stock-detail:
+    build:
+      context: .
+      dockerfile: deployments/stock-detail/Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      - REDIS_ADDR=redis:6379
+      - KAFKA_BROKERS=redpanda:9092
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
+      - OTEL_SERVICE_NAME=stock-detail
+    depends_on:
+      - redpanda
+      - redis
+      - otel-collector
+
+  price-graph:
+    build:
+      context: .
+      dockerfile: deployments/price-graph/Dockerfile
+    ports:
+      - "8081:8081"
+    environment:
+      - PG_USER=user
+      - PG_PASSWORD=example
+      - PG_HOST=timescaledb:5432
+      - PG_DB=prices
+      - KAFKA_BROKERS=redpanda:9092
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
+      - OTEL_SERVICE_NAME=price-graph
+    depends_on:
+      - redpanda
+      - timescaledb
+      - otel-collector
+
+  portfolio:
+    build:
+      context: .
+      dockerfile: deployments/portfolio/Dockerfile
+    ports:
+      - "8082:8082"
+    environment:
+      - STOCK_DETAIL_URL=http://stock-detail:8080
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
+      - OTEL_SERVICE_NAME=portfolio
+    depends_on:
+      - stock-detail
+      - otel-collector
+
+volumes:
+  timescale-data:
